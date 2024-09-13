@@ -1,0 +1,67 @@
+# Import necessary libraries
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+# Load the dataset
+train_data = pd.read_csv("train.csv")
+test_data = pd.read_csv("test.csv")
+
+# Define preprocessing steps
+numeric_features = ['Age', 'Fare']
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean'))
+])
+
+categorical_features = ['Sex', 'Embarked', 'Pclass']
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features)
+    ])
+
+# Split data into features and target
+X = train_data.drop('Survived', axis=1)
+y = train_data['Survived']
+
+# Split training data into training and validation sets
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Fit the preprocessor
+preprocessor.fit(X_train)
+
+# Transform the training and validation sets
+X_train_processed = preprocessor.transform(X_train)
+X_val_processed = preprocessor.transform(X_val)
+
+# Initialize the model
+rf_model = RandomForestClassifier(random_state=42)
+
+# Train the model
+rf_model.fit(X_train_processed, y_train)
+
+# Make predictions on the validation set
+y_pred = rf_model.predict(X_val_processed)
+
+# Evaluate the model
+accuracy = accuracy_score(y_val, y_pred)
+print("Validation Accuracy:", accuracy)
+
+# Make predictions on the test data
+X_test = test_data
+X_test_processed = preprocessor.transform(X_test)
+test_predictions = rf_model.predict(X_test_processed)
+
+# Save the predictions to a submission file
+submission = pd.DataFrame({'PassengerId': test_data['PassengerId'], 'Survived': test_predictions})
+submission.to_csv('submission.csv', index=False)
